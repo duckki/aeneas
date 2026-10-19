@@ -646,6 +646,10 @@ and binop =
   | Le of literal_type
   | Ge of literal_type
   | Gt of literal_type
+  | FloatAdd of float_type
+  | FloatSub of float_type
+  | FloatMul of float_type
+  | FloatDiv of float_type
   | Add of overflow_mode * integer_type
   | Sub of overflow_mode * integer_type
   | Mul of overflow_mode * integer_type
@@ -1214,6 +1218,7 @@ and tpat = { pat : pat; ty : ty }
 
 type unop =
   | Not of integer_type option
+  | FloatNeg of float_type
   | Neg of integer_type
   | Cast of cast_kind
   | ArrayToSlice

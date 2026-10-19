@@ -39,6 +39,8 @@ package «tests» {}
 @[default_target] lean_lib DropBug
 @[default_target] lean_lib Dyn
 @[default_target] lean_lib DynamicSize
+@[default_target] lean_lib Float64
+@[default_target] lean_lib Float64Bits
 @[default_target] lean_lib FnPtrGeneric
 @[default_target] lean_lib FromTo
 @[default_target] lean_lib GenericUnitOutput
@@ -68,6 +70,8 @@ package «tests» {}
 @[default_target] lean_lib Issue804ClosureReturnRef
 @[default_target] lean_lib Issue807MissingSymbolicValue
 @[default_target] lean_lib Issue815GlobalReferencingFallibleGlobal
+@[default_target] lean_lib Issue828Float
+@[default_target] lean_lib Issue828FloatTests
 @[default_target] lean_lib IssueCharon1172
 @[default_target] lean_lib IterAdapters
 @[default_target] lean_lib Iterators

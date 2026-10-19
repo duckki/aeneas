@@ -484,6 +484,8 @@ let extract_cast_kind_gen (span : Meta.span)
                 boolean), it gets compiled to [b] (i.e., no cast
                 is introduced). *)
              [%craise] span "Unexpected cast: bool to bool"
+         | TFloat _, _ | _, TFloat _ ->
+             [%craise] span "Floating-point casts are not supported"
          | _ -> [%craise] span "Unreachable"
        in
        (* Print the name of the function *)
@@ -566,7 +568,7 @@ let extract_unop (span : Meta.span)
     (extract_expr : inside:bool -> texpr -> unit) (fmt : F.formatter)
     ~(inside : bool) (unop : unop) (arg : texpr) : unit =
   match unop with
-  | Not _ | Neg _ | ArrayToSlice ->
+  | Not _ | Neg _ | FloatNeg _ | ArrayToSlice ->
       let unop = unop_name unop in
       if inside then F.pp_print_string fmt "(";
       F.pp_print_string fmt unop;
@@ -592,6 +594,15 @@ let extract_binop (span : Meta.span) (ctx : extraction_ctx)
   if inside then F.pp_print_string fmt "(";
   (* Some binary operations have a special notation depending on the backend *)
   (match (backend (), binop) with
+  | Lean, (Eq (TLiteral (TFloat F64)) | Ne (TLiteral (TFloat F64))) ->
+      (* Rust equality is IEEE equality: NaN != NaN and +0 == -0.
+         Lean propositional equality on Float would be the wrong operation. *)
+      extract_expr ~inside:true arg0;
+      F.pp_print_string fmt
+        (match binop with
+        | Eq _ -> " == "
+        | _ -> " != ");
+      extract_expr ~inside:true arg1
   | HOL4, (Eq _ | Ne _)
   | (FStar | Coq | Lean), (Eq _ | Lt _ | Le _ | Ne _ | Ge _ | Gt _)
   | (FStar | Lean), (BoolAnd | BoolOr)

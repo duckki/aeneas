@@ -389,6 +389,7 @@ let check_literal_type (span : Meta.span) (cv : literal) (ty : scalar_type) :
       [%sanity_check] span (sv_ty = int_ty)
   | VScalar (UnsignedInteger (sv_ty, _)), TInteger (Unsigned int_ty) ->
       [%sanity_check] span (sv_ty = int_ty)
+  | VFloat v, TFloat ty -> [%sanity_check] span (v.float_ty = ty)
   | VBool _, TBool | VChar _, TChar -> ()
   | _ -> [%craise] span "Erroneous typing"
 

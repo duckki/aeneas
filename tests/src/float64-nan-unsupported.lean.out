@@ -1,0 +1,5 @@
+[[92mInfo[39m ] Imported: tests/llbc/float64_nan_unsupported.llbc
+[[91mError[39m] NaN literals require a bit-preserving LLBC encoding
+Source: 'tests/src/float64-nan-unsupported.rs', lines 5:4-5:29
+Compiler source: interp/InterpExpressions.ml, line 112
+

@@ -100,6 +100,23 @@ let extract_literal (span : Meta.span) (fmt : F.formatter) ~(is_pattern : bool)
           if inside then F.pp_print_string fmt ")")
   | VStr s -> extract_str span ~inside fmt s
   | VPureString s -> extract_pure_string fmt s
+  | VFloat { float_ty = F64; float_value } when backend () = Lean ->
+      (* Charon serializes binary64 constants as round-tripping decimal strings.
+         Emit their bits, avoiding Lean decimal-literal elaboration. *)
+      let value =
+        match float_of_string_opt float_value with
+        | Some value -> value
+        | None -> [%craise] span "Invalid binary64 literal from Charon"
+      in
+      [%cassert] span
+        (classify_float value <> FP_nan)
+        "NaN literals require a bit-preserving LLBC encoding";
+      let bits = Int64.bits_of_float value in
+      let bits = Z.of_int64 bits in
+      let bits =
+        if Z.sign bits < 0 then Z.add bits (Z.shift_left Z.one 64) else bits
+      in
+      F.pp_print_string fmt ("(Float.ofBits " ^ Z.to_string bits ^ ")")
   | VChar _ | VFloat _ | VByteStr _ ->
       [%admit_raise] span
         "Float, string, non-ASCII chars and byte string literals are \

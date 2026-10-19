@@ -2844,6 +2844,7 @@ let get_tuple_size (e : texpr) : int option =
   | _ -> None
 
 let binop_can_fail : binop -> bool = function
+  | FloatAdd _ | FloatSub _ | FloatMul _ | FloatDiv _ -> false
   | BitXor _ | BitAnd _ | BitOr _ | Eq _ | Lt _ | Le _ | Ne _ | Ge _ | Gt _
   | Add (OWrap, _)
   | Sub (OWrap, _)

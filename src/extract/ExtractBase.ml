@@ -533,16 +533,21 @@ let int_name (int_ty : integer_type) : string =
   | Unsigned U128 -> Printf.sprintf u_format 128
 
 let float_name (float_ty : float_type) : string =
-  let format =
-    match backend () with
-    | FStar | Coq | HOL4 -> format_of_string "f%d"
-    | Lean -> format_of_string "F%d"
-  in
-  match float_ty with
-  | F16 -> Printf.sprintf format 16
-  | F32 -> Printf.sprintf format 32
-  | F64 -> Printf.sprintf format 64
-  | F128 -> Printf.sprintf format 128
+  if backend () = Lean && float_ty = F64 then "Float"
+  else if backend () = Lean then
+    [%craise_opt_span] None
+      "The Lean backend currently supports only f64 floating-point types"
+  else
+    let format =
+      match backend () with
+      | FStar | Coq | HOL4 -> format_of_string "f%d"
+      | Lean -> format_of_string "F%d"
+    in
+    match float_ty with
+    | F16 -> Printf.sprintf format 16
+    | F32 -> Printf.sprintf format 32
+    | F64 -> Printf.sprintf format 64
+    | F128 -> Printf.sprintf format 128
 
 let scalar_name (ty : literal_type) : string =
   match ty with
@@ -937,6 +942,10 @@ let unop_name (unop : unop) : string =
         end
       | Coq -> if Option.is_none ty then "negb" else "scalar_not"
       | HOL4 -> "~")
+  | FloatNeg F64 when backend () = Lean -> "Float.neg"
+  | FloatNeg _ ->
+      [%craise_opt_span] None
+        "Floating-point negation requires the Lean binary64 backend"
   | Neg (int_ty : integer_type) -> (
       match backend () with
       | Lean -> "-."
@@ -960,6 +969,13 @@ let named_binop_name (binop : binop) : string =
     | FStar | Coq | HOL4 -> int_name int_ty ^ "_"
   in
   match binop with
+  | FloatAdd F64 when backend () = Lean -> "Float.add"
+  | FloatSub F64 when backend () = Lean -> "Float.sub"
+  | FloatMul F64 when backend () = Lean -> "Float.mul"
+  | FloatDiv F64 when backend () = Lean -> "Float.div"
+  | FloatAdd _ | FloatSub _ | FloatMul _ | FloatDiv _ ->
+      [%craise_opt_span] None
+        "Floating-point arithmetic requires the Lean binary64 backend"
   | Div (_, ty) -> add_int_name ty ^ "div"
   | Rem (_, ty) -> add_int_name ty ^ "rem"
   | Add (_, ty) -> add_int_name ty ^ "add"

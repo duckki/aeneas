@@ -1,0 +1,5 @@
+[[92mInfo[39m ] Imported: tests/llbc/float64_cast_unsupported.llbc
+[[91mError[39m] Floating-point casts are not supported
+Source: 'tests/src/float64-cast-unsupported.rs', lines 3:0-5:1
+Compiler source: symbolic/SymbolicToPureExpressions.ml, line 601
+

@@ -557,19 +557,28 @@ and translate_function_call_aux (call : S.call) (e : S.expr) (ctx : bs_ctx) :
     | S.Unop (E.Neg overflow) -> (
         match args with
         | [ arg ] ->
-            let int_ty = ty_as_integer ctx.span arg.ty in
-            (* Note that negation can lead to an overflow and thus fail (it
-             * is thus monadic) *)
+            let float_ty : float_type option =
+              match arg.ty with
+              | TLiteral (TFloat F64) -> Some F64
+              | _ -> None
+            in
+            let op =
+              match float_ty with
+              | Some ty -> FloatNeg ty
+              | None -> Neg (ty_as_integer ctx.span arg.ty)
+            in
+            (* Integer negation can fail on overflow. Floating-point negation
+               preserves exceptional values and cannot panic. *)
             let effect_info =
               {
-                can_fail = overflow <> OWrap;
+                can_fail = Option.is_none float_ty && overflow <> OWrap;
                 can_diverge = false;
                 is_rec = false;
               }
             in
             let ctx, dest = fresh_var_for_symbolic_value call.dest ctx in
             let dest = mk_tpat_from_fvar dest_mplace dest in
-            (ctx, Unop (Neg int_ty), effect_info, args, [], dest)
+            (ctx, Unop op, effect_info, args, [], dest)
         | _ -> [%craise] ctx.span "Unreachable")
     | S.Unop (E.Cast kind) -> begin
         let arg_ty =
@@ -587,6 +596,10 @@ and translate_function_call_aux (call : S.call) (e : S.expr) (ctx : bs_ctx) :
               in
               let src_ty = translate_literal_type src_ty in
               let tgt_ty = translate_literal_type tgt_ty in
+              (match (src_ty, tgt_ty) with
+              | TFloat _, _ | _, TFloat _ ->
+                  [%craise] ctx.span "Floating-point casts are not supported"
+              | _ -> ());
               (CastLit (src_ty, tgt_ty), not (Config.backend () = Lean))
           | CastRawPtr tgt_ty ->
               (* We only support casts between pointers to literal types for now *)
@@ -643,7 +656,10 @@ and translate_function_call_aux (call : S.call) (e : S.expr) (ctx : bs_ctx) :
         | [ arg0; arg1 ] ->
             let effect_info =
               {
-                can_fail = ExpressionsUtils.binop_can_fail binop;
+                can_fail =
+                  (match arg0.ty with
+                  | TLiteral (TFloat F64) -> false
+                  | _ -> ExpressionsUtils.binop_can_fail binop);
                 can_diverge = false;
                 is_rec = false;
               }
@@ -664,45 +680,51 @@ and translate_function_call_aux (call : S.call) (e : S.expr) (ctx : bs_ctx) :
               lit_ty0
             in
             let binop =
-              match binop with
-              | Expressions.BitXor ->
-                  if arg0.ty = TLiteral TBool then BoolXor
-                  else BitXor (get_single_int_ty ())
-              | Expressions.BitAnd ->
-                  if arg0.ty = TLiteral TBool then BoolAnd
-                  else BitAnd (get_single_int_ty ())
-              | Expressions.BitOr ->
-                  if arg0.ty = TLiteral TBool then BoolOr
-                  else BitOr (get_single_int_ty ())
-              | Expressions.Eq ->
-                  [%sanity_check] ctx.span (arg0.ty = arg1.ty);
-                  Eq arg0.ty
-              | Expressions.Ne ->
-                  [%sanity_check] ctx.span (arg0.ty = arg1.ty);
-                  Ne arg0.ty
-              | Expressions.Lt -> Lt (get_single_lit_ty ())
-              | Expressions.Le -> Le (get_single_lit_ty ())
-              | Expressions.Ge -> Ge (get_single_lit_ty ())
-              | Expressions.Gt -> Gt (get_single_lit_ty ())
-              | Expressions.Add om -> Add (om, get_single_int_ty ())
-              | Expressions.Sub om -> Sub (om, get_single_int_ty ())
-              | Expressions.Mul om -> Mul (om, get_single_int_ty ())
-              | Expressions.Div om -> Div (om, get_single_int_ty ())
-              | Expressions.Rem om -> Rem (om, get_single_int_ty ())
-              | Expressions.AddChecked -> AddChecked (get_single_int_ty ())
-              | Expressions.SubChecked -> SubChecked (get_single_int_ty ())
-              | Expressions.MulChecked -> MulChecked (get_single_int_ty ())
-              | Expressions.Shl om ->
-                  let ty0 = ty_as_integer ctx.span arg0.ty in
-                  let ty1 = ty_as_integer ctx.span arg1.ty in
-                  Shl (om, ty0, ty1)
-              | Expressions.Shr om ->
-                  let ty0 = ty_as_integer ctx.span arg0.ty in
-                  let ty1 = ty_as_integer ctx.span arg1.ty in
-                  Shr (om, ty0, ty1)
-              | Expressions.Offset ->
-                  [%craise] ctx.span "Not supported: `binop::offset`"
-              | Expressions.Cmp -> Cmp (get_single_int_ty ())
+              match (arg0.ty, binop) with
+              | TLiteral (TFloat F64), Expressions.Add _ -> FloatAdd F64
+              | TLiteral (TFloat F64), Expressions.Sub _ -> FloatSub F64
+              | TLiteral (TFloat F64), Expressions.Mul _ -> FloatMul F64
+              | TLiteral (TFloat F64), Expressions.Div _ -> FloatDiv F64
+              | _ -> (
+                  match binop with
+                  | Expressions.BitXor ->
+                      if arg0.ty = TLiteral TBool then BoolXor
+                      else BitXor (get_single_int_ty ())
+                  | Expressions.BitAnd ->
+                      if arg0.ty = TLiteral TBool then BoolAnd
+                      else BitAnd (get_single_int_ty ())
+                  | Expressions.BitOr ->
+                      if arg0.ty = TLiteral TBool then BoolOr
+                      else BitOr (get_single_int_ty ())
+                  | Expressions.Eq ->
+                      [%sanity_check] ctx.span (arg0.ty = arg1.ty);
+                      Eq arg0.ty
+                  | Expressions.Ne ->
+                      [%sanity_check] ctx.span (arg0.ty = arg1.ty);
+                      Ne arg0.ty
+                  | Expressions.Lt -> Lt (get_single_lit_ty ())
+                  | Expressions.Le -> Le (get_single_lit_ty ())
+                  | Expressions.Ge -> Ge (get_single_lit_ty ())
+                  | Expressions.Gt -> Gt (get_single_lit_ty ())
+                  | Expressions.Add om -> Add (om, get_single_int_ty ())
+                  | Expressions.Sub om -> Sub (om, get_single_int_ty ())
+                  | Expressions.Mul om -> Mul (om, get_single_int_ty ())
+                  | Expressions.Div om -> Div (om, get_single_int_ty ())
+                  | Expressions.Rem om -> Rem (om, get_single_int_ty ())
+                  | Expressions.AddChecked -> AddChecked (get_single_int_ty ())
+                  | Expressions.SubChecked -> SubChecked (get_single_int_ty ())
+                  | Expressions.MulChecked -> MulChecked (get_single_int_ty ())
+                  | Expressions.Shl om ->
+                      let ty0 = ty_as_integer ctx.span arg0.ty in
+                      let ty1 = ty_as_integer ctx.span arg1.ty in
+                      Shl (om, ty0, ty1)
+                  | Expressions.Shr om ->
+                      let ty0 = ty_as_integer ctx.span arg0.ty in
+                      let ty1 = ty_as_integer ctx.span arg1.ty in
+                      Shr (om, ty0, ty1)
+                  | Expressions.Offset ->
+                      [%craise] ctx.span "Not supported: `binop::offset`"
+                  | Expressions.Cmp -> Cmp (get_single_int_ty ()))
             in
             (ctx, Binop binop, effect_info, args, [], dest)
         | _ -> [%craise] ctx.span "Unreachable")

@@ -1,0 +1,5 @@
+[[92mInfo[39m ] Imported: tests/llbc/float64_rem_unsupported.llbc
+[[91mError[39m] Unsupported binary64 operation
+Source: 'tests/src/float64-rem-unsupported.rs', lines 4:4-4:9
+Compiler source: interp/InterpExpressions.ml, line 1187
+

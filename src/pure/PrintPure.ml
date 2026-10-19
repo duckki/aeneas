@@ -906,6 +906,7 @@ let cast_kind_to_string (env : fmt_env) (kind : cast_kind) : string =
 let unop_to_string (env : fmt_env) (unop : unop) : string =
   match unop with
   | Not _ -> "¬"
+  | FloatNeg _ -> "float_neg"
   | Neg _ -> "-"
   | Cast kind -> cast_kind_to_string env kind
   | ArrayToSlice -> "array_to_slice"
@@ -954,6 +955,10 @@ let binop_to_string (env : fmt_env) (binop : binop) =
   | Cmp int_ty -> "cmp" ^ int_ty_to_string int_ty
   | BoolAnd -> "&&"
   | BoolOr -> "||"
+  | FloatAdd _ -> "float_add"
+  | FloatSub _ -> "float_sub"
+  | FloatMul _ -> "float_mul"
+  | FloatDiv _ -> "float_div"
   | BoolXor -> "^^"
 
 let fun_or_op_id_to_string (env : fmt_env) (fun_id : fun_or_op_id) : string =
